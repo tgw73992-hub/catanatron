@@ -6,9 +6,11 @@ from catanatron.state_functions import (
     buy_dev_card,
     get_actual_victory_points,
     get_largest_army,
+    maintain_longest_road,
     play_dev_card,
     player_deck_random_select,
     player_deck_replenish,
+    player_key,
 )
 from catanatron.models.enums import (
     KNIGHT,
@@ -60,3 +62,22 @@ def test_defeating_your_own_largest_army_doesnt_give_more_vps():
     play_dev_card(state, Color.RED, KNIGHT)
     assert get_largest_army(state) == (Color.RED, 4)
     assert get_actual_victory_points(state, Color.RED) == 7
+
+
+def test_longest_road_is_returned_when_nobody_has_five_roads():
+    state = State([SimplePlayer(Color.RED), SimplePlayer(Color.BLUE)])
+    red_key = player_key(state, Color.RED)
+    state.player_state[f"{red_key}_HAS_ROAD"] = True
+    state.player_state[f"{red_key}_VICTORY_POINTS"] = 4
+    state.player_state[f"{red_key}_ACTUAL_VICTORY_POINTS"] = 4
+
+    maintain_longest_road(
+        state,
+        previous_road_color=Color.RED,
+        road_color=None,
+        road_lengths={Color.RED: 4, Color.BLUE: 4},
+    )
+
+    assert not state.player_state[f"{red_key}_HAS_ROAD"]
+    assert state.player_state[f"{red_key}_VICTORY_POINTS"] == 2
+    assert state.player_state[f"{red_key}_ACTUAL_VICTORY_POINTS"] == 2

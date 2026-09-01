@@ -68,6 +68,25 @@ def test_longest_road_tie():
     assert board.road_lengths == {Color.RED: 5, Color.BLUE: 6}
 
 
+def test_enemy_settlement_revokes_longest_road_when_nobody_qualifies():
+    board = Board()
+    board.build_settlement(Color.RED, 0, initial_build_phase=True)
+    for edge in [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]:
+        board.build_road(Color.RED, edge)
+    assert board.road_color is Color.RED
+
+    board.build_settlement(Color.BLUE, 11, initial_build_phase=True)
+    board.build_road(Color.BLUE, (11, 12))
+    board.build_road(Color.BLUE, (12, 3))
+
+    previous, current, road_lengths = board.build_settlement(Color.BLUE, 3)
+
+    assert previous is Color.RED
+    assert current is None
+    assert road_lengths[Color.RED] == 3
+    assert board.road_length == 3
+
+
 # test: complicated circle around
 def test_complicated_road():  # classic 8-like roads
     board = Board()

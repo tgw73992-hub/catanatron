@@ -7,8 +7,8 @@ from catanatron.state_functions import (
     player_clean_turn,
     player_has_rolled,
 )
-from catanatron.game import Game, is_valid_trade
-from catanatron.apply_action import apply_action
+from catanatron.game import Game, is_valid_action, is_valid_trade
+from catanatron.apply_action import apply_action, apply_confirm_trade
 from catanatron.state_functions import (
     player_key,
     player_deck_replenish,
@@ -504,6 +504,55 @@ def test_trade_offers_are_valid():
     asking = [0, 1, 0, 0, 0]
     action_value = tuple([*offering, *asking])
     assert is_valid_trade(action_value)
+
+
+def test_trade_offer_requires_the_proposer_to_own_the_offered_cards():
+    game = Game([SimplePlayer(Color.RED), SimplePlayer(Color.BLUE)])
+    proposer = game.state.colors[0]
+    game.state.is_initial_build_phase = False
+    game.state.current_turn_index = 0
+    game.state.current_player_index = 0
+    game.state.current_prompt = ActionPrompt.PLAY_TURN
+    game.state.player_state[f"{player_key(game.state, proposer)}_HAS_ROLLED"] = True
+    action = Action(
+        proposer,
+        ActionType.OFFER_TRADE,
+        (1, 0, 0, 0, 0, 0, 1, 0, 0, 0),
+    )
+
+    assert not is_valid_action([], game.state, action)
+
+
+def test_trade_confirmation_rechecks_both_players_before_mutating_hands():
+    game = Game([SimplePlayer(Color.RED), SimplePlayer(Color.BLUE)])
+    proposer, recipient = game.state.colors
+    player_deck_replenish(game.state, recipient, BRICK)
+    action = Action(
+        proposer,
+        ActionType.CONFIRM_TRADE,
+        (1, 0, 0, 0, 0, 0, 1, 0, 0, 0, recipient),
+    )
+
+    with pytest.raises(ValueError, match="resources"):
+        apply_confirm_trade(game.state, action)
+
+    assert get_player_freqdeck(game.state, proposer) == [0, 0, 0, 0, 0]
+    assert get_player_freqdeck(game.state, recipient) == [0, 1, 0, 0, 0]
+
+
+def test_only_the_active_player_can_win():
+    game = Game([SimplePlayer(Color.RED), SimplePlayer(Color.BLUE)])
+    active, non_active = game.state.colors
+    game.state.current_turn_index = 0
+    game.state.current_player_index = 0
+    game.state.player_state[
+        f"{player_key(game.state, active)}_ACTUAL_VICTORY_POINTS"
+    ] = 9
+    game.state.player_state[
+        f"{player_key(game.state, non_active)}_ACTUAL_VICTORY_POINTS"
+    ] = 10
+
+    assert game.winning_color() is None
 
 
 @patch("catanatron.apply_action.roll_dice")

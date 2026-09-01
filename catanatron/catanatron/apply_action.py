@@ -21,6 +21,7 @@ from catanatron.models.decks import (
     draw_from_listdeck,
     freqdeck_add,
     freqdeck_can_draw,
+    freqdeck_count,
     freqdeck_contains,
     freqdeck_draw,
     freqdeck_from_listdeck,
@@ -503,6 +504,11 @@ def apply_confirm_trade(state: State, action: Action):
     offering = action.value[:5]
     asking = action.value[5:10]
     enemy_color = action.value[10]
+    if not player_resource_freqdeck_contains(state, action.color, offering):
+        raise ValueError("Offering player does not have the required resources")
+    if not player_resource_freqdeck_contains(state, enemy_color, asking):
+        raise ValueError("Accepting player does not have the required resources")
+
     player_freqdeck_subtract(state, action.color, offering)
     player_freqdeck_add(state, action.color, asking)
     player_freqdeck_subtract(state, enemy_color, asking)
@@ -582,6 +588,12 @@ def yield_resources(board: Board, resource_freqdeck, number):
         for resource, count in player_payout.items():
             if resource not in depleted:
                 freqdeck_replenish(payout[player], count, resource)
+            elif sum(
+                other_payout[resource] > 0
+                for other_payout in intented_payout.values()
+            ) == 1:
+                remaining = freqdeck_count(resource_freqdeck, resource)
+                freqdeck_replenish(payout[player], min(count, remaining), resource)
 
     return payout, depleted
 

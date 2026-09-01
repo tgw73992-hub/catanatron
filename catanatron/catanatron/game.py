@@ -11,7 +11,11 @@ from catanatron.models.actions import generate_playable_actions
 from catanatron.models.enums import Action, ActionPrompt, ActionRecord, ActionType
 from catanatron.state import State
 from catanatron.apply_action import apply_action
-from catanatron.state_functions import player_key, player_has_rolled
+from catanatron.state_functions import (
+    player_has_rolled,
+    player_key,
+    player_resource_freqdeck_contains,
+)
 from catanatron.models.map import CatanMap, NumberPlacement
 from catanatron.models.player import Color, Player
 
@@ -28,6 +32,9 @@ def is_valid_action(playable_actions, state: State, action: Action) -> bool:
             and state.current_prompt == ActionPrompt.PLAY_TURN
             and player_has_rolled(state, action.color)
             and is_valid_trade(action.value)
+            and player_resource_freqdeck_contains(
+                state, action.color, action.value[:5]
+            )
         )
 
     return action in playable_actions
@@ -200,16 +207,14 @@ class Game:
         Returns:
             Union[Color, None]: Might be None if game truncated by TURNS_LIMIT
         """
-        result = None
-        for color in self.state.colors:
-            key = player_key(self.state, color)
-            if (
-                self.state.player_state[f"{key}_ACTUAL_VICTORY_POINTS"]
-                >= self.vps_to_win
-            ):
-                result = color
-
-        return result
+        color = self.state.colors[self.state.current_turn_index]
+        key = player_key(self.state, color)
+        if (
+            self.state.player_state[f"{key}_ACTUAL_VICTORY_POINTS"]
+            >= self.vps_to_win
+        ):
+            return color
+        return None
 
     def copy(self) -> "Game":
         """Creates a copy of this Game, that can be modified without

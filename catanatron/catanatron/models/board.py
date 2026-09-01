@@ -140,14 +140,13 @@ class Board:
                             for component in self.connected_components[edge_color]
                         ]
                     )
-                    self.road_color, self.road_length = max(
-                        self.road_lengths.items(), key=lambda e: e[1]
-                    )
                 elif len(edges) == 1:
                     # Endpoint blocked: remove node_id from opponent's component
                     b_index = self._get_connected_component_index(node_id, edge_color)
                     if b_index is not None:
                         self.connected_components[edge_color][b_index].discard(node_id)
+
+            self._update_longest_road(previous_road_color)
 
         self.board_buildable_ids.discard(node_id)
         for n in STATIC_GRAPH.neighbors(node_id):
@@ -189,6 +188,27 @@ class Board:
             if node_id in component:
                 return i
 
+    def _update_longest_road(self, previous_road_color):
+        if not self.road_lengths:
+            self.road_color = None
+            self.road_length = 0
+            return
+
+        self.road_length = max(self.road_lengths.values())
+        leaders = [
+            color
+            for color, length in self.road_lengths.items()
+            if length == self.road_length
+        ]
+        if self.road_length < 5:
+            self.road_color = None
+        elif previous_road_color in leaders:
+            self.road_color = previous_road_color
+        elif len(leaders) == 1:
+            self.road_color = leaders[0]
+        else:
+            self.road_color = None
+
     def build_road(self, color, edge):
         buildable = self.buildable_edges(color)
         inverted_edge = (edge[1], edge[0])
@@ -228,9 +248,7 @@ class Board:
         previous_road_color = self.road_color
         candidate_length = len(longest_acyclic_path(self, component, color))
         self.road_lengths[color] = max(self.road_lengths[color], candidate_length)
-        if candidate_length >= 5 and candidate_length > self.road_length:
-            self.road_color = color
-            self.road_length = candidate_length
+        self._update_longest_road(previous_road_color)
 
         self.buildable_edges_cache = {}  # Reset buildable_edges
         return previous_road_color, self.road_color, self.road_lengths
