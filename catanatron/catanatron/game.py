@@ -229,5 +229,5 @@ class Game:
         game_copy.vps_to_win = self.vps_to_win
         game_copy.friendly_robber = self.friendly_robber
         game_copy.state = self.state.copy()
-        game_copy.playable_actions = self.playable_actions
+        game_copy.playable_actions = self.playable_actions.copy()
         return game_copy

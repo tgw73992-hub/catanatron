@@ -321,7 +321,7 @@ class Board:
 
     def copy(self):
         board = Board(self.map, initialize=False)
-        board.map = self.map  # reuse since its immutable
+        board.map = copy.deepcopy(self.map)
         board.buildings = self.buildings.copy()
         board.roads = self.roads.copy()
         board.connected_components = pickle.loads(

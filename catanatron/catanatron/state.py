@@ -1,3 +1,4 @@
+import copy
 import pickle
 import random
 from collections import defaultdict
@@ -158,14 +159,14 @@ class State:
             State: State copy.
         """
         state_copy = State([], None, initialize=False)
-        state_copy.players = self.players
+        state_copy.players = copy.deepcopy(self.players)
         state_copy.discard_limit = self.discard_limit  # immutable
         state_copy.friendly_robber = self.friendly_robber  # immutable
 
         state_copy.board = self.board.copy()
 
         state_copy.player_state = self.player_state.copy()
-        state_copy.color_to_index = self.color_to_index
+        state_copy.color_to_index = self.color_to_index.copy()
         state_copy.colors = self.colors  # immutable
 
         state_copy.resource_freqdeck = self.resource_freqdeck.copy()
@@ -174,7 +175,7 @@ class State:
         state_copy.buildings_by_color = pickle.loads(
             pickle.dumps(self.buildings_by_color)
         )
-        state_copy.action_records = self.action_records.copy()
+        state_copy.action_records = copy.deepcopy(self.action_records)
         state_copy.num_turns = self.num_turns
 
         # Current prompt / player
