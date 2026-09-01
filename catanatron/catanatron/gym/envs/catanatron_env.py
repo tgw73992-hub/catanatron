@@ -1,5 +1,5 @@
 from typing import TypedDict, Union
-import random
+import secrets
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
@@ -7,6 +7,7 @@ import numpy as np
 from catanatron.game import Game, TURNS_LIMIT
 from catanatron.models.player import Color, Player, RandomPlayer
 from catanatron.models.map import build_map
+from catanatron.rng import EnvironmentRngs
 from catanatron.features import (
     create_sample,
     get_feature_ordering,
@@ -167,17 +168,17 @@ class CatanatronEnv(gym.Env):
     ):
         super().reset(seed=seed)
 
-        if seed is not None:
-            # Ensure map generation uses the same seed as the game.
-            random.seed(seed)
-        catan_map = build_map(self.map_type)
+        game_seed = seed if seed is not None else secrets.randbits(63)
+        environment_rngs = EnvironmentRngs.from_seed(game_seed)
+        catan_map = build_map(self.map_type, rng=environment_rngs.setup)
         for player in self.players:
             player.reset_state()
         self.game = Game(
             players=self.players,
-            seed=seed,
+            seed=game_seed,
             catan_map=catan_map,
             vps_to_win=self.vps_to_win,
+            rngs=environment_rngs,
         )
         self.invalid_actions_count = 0
 

@@ -24,7 +24,7 @@ class Player:
     the database via pickle.
     """
 
-    def __init__(self, color, is_bot=True):
+    def __init__(self, color, is_bot=True, rng=None):
         """Initialize the player
 
         Args:
@@ -33,6 +33,8 @@ class Player:
         """
         self.color = color
         self.is_bot = is_bot
+        self._rng_is_external = rng is not None
+        self.rng = rng or random.Random()
 
     def decide(self, game, playable_actions):
         """Should return one of the playable_actions or
@@ -47,6 +49,11 @@ class Player:
     def reset_state(self):
         """Hook for resetting state between games"""
         pass
+
+    def reset_rng(self, seed):
+        """Reset the owned policy stream while preserving injected generators."""
+        if not self._rng_is_external:
+            self.rng.seed(seed)
 
     def __repr__(self):
         return f"{type(self).__name__}:{self.color.value}"
@@ -85,4 +92,4 @@ class RandomPlayer(Player):
     """Random AI player that selects an action randomly from the list of playable_actions"""
 
     def decide(self, game, playable_actions):
-        return random.choice(playable_actions)
+        return self.rng.choice(playable_actions)

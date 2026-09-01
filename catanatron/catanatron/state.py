@@ -1,8 +1,7 @@
 import copy
 import pickle
-import random
 from collections import defaultdict
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from catanatron.models.map import BASE_MAP_TEMPLATE, CatanMap, NumberPlacement
 from catanatron.models.board import Board
@@ -17,6 +16,7 @@ from catanatron.models.decks import (
     starting_resource_bank,
 )
 from catanatron.models.player import Color, Player
+from catanatron.rng import EnvironmentRngs, derive_seed
 
 # These will be prefixed by P0_, P1_, ...
 # Create Player State blueprint
@@ -93,13 +93,22 @@ class State:
         discard_limit=7,
         friendly_robber=False,
         number_placement: NumberPlacement = "official_spiral",
+        rngs: Optional[EnvironmentRngs] = None,
         initialize=True,
     ):
         if initialize:
-            self.players = random.sample(players, len(players))
+            self.rngs = rngs or EnvironmentRngs.from_seed()
+            self.players = self.rngs.setup.sample(players, len(players))
+            for player in self.players:
+                player.reset_rng(
+                    derive_seed(self.rngs.root_seed, f"policy.{player.color.value}")
+                )
             self.colors = tuple([player.color for player in self.players])
             self.board = Board(
-                catan_map or CatanMap.from_template(BASE_MAP_TEMPLATE, number_placement)
+                catan_map
+                or CatanMap.from_template(
+                    BASE_MAP_TEMPLATE, number_placement, rng=self.rngs.setup
+                )
             )
             self.discard_limit = discard_limit
             self.friendly_robber = friendly_robber
@@ -115,7 +124,7 @@ class State:
 
             self.resource_freqdeck = starting_resource_bank()
             self.development_listdeck = starting_devcard_bank()
-            random.shuffle(self.development_listdeck)
+            self.rngs.development.shuffle(self.development_listdeck)
 
             # Auxiliary attributes to implement game logic
             self.buildings_by_color: Dict[Color, Dict[Any, Any]] = {
@@ -160,6 +169,7 @@ class State:
         """
         state_copy = State([], None, initialize=False)
         state_copy.players = copy.deepcopy(self.players)
+        state_copy.rngs = self.rngs.copy()
         state_copy.discard_limit = self.discard_limit  # immutable
         state_copy.friendly_robber = self.friendly_robber  # immutable
 

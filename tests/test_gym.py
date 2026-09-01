@@ -252,33 +252,27 @@ def test_action_space_conversion_roundtrip():
 
 
 def test_gym_reproducibility():
-    # Play a game with the same seed, and ensure the game is the same
-    env = gymnasium.make(
-        "catanatron/Catanatron-v0",
-        config={
-            "enemies": [
-                ValueFunctionPlayer(Color.RED),
-            ]
-        },
-    )
-    observation, info = env.reset(seed=123)
-    env.action_space.seed(123)
-    game = env.unwrapped.game
-    center_tile = game.state.board.map.land_tiles[(0, 0, 0)]
-    assert center_tile.resource == ORE
-    assert center_tile.number == 11
+    def run_seeded_game():
+        env = gymnasium.make(
+            "catanatron/Catanatron-v0",
+            config={"enemies": [ValueFunctionPlayer(Color.RED)]},
+        )
+        env.reset(seed=123)
+        action_rng = random.Random(123)
 
-    done = False
-    reward = 0
-    while not done:
-        action_mask = env.action_masks()
-        valid_indices = np.flatnonzero(action_mask)
-        action = random.choice(valid_indices)
+        done = False
+        while not done:
+            valid_indices = np.flatnonzero(env.action_masks())
+            action = action_rng.choice(valid_indices)
+            _, _, terminated, truncated, _ = env.step(action)
+            done = terminated or truncated
 
-        observation, reward, terminated, truncated, info = env.step(action)
-        done = terminated or truncated
-    game = env.unwrapped.game
-    game_json = json.loads(json.dumps(game, cls=GameEncoder))
-    env.close()
+        game_json = json.loads(json.dumps(env.unwrapped.game, cls=GameEncoder))
+        env.close()
+        return game_json
 
-    assert game_json["state_index"] == 125
+    first = run_seeded_game()
+    second = run_seeded_game()
+
+    assert first == second
+    assert first["state_index"] > 0

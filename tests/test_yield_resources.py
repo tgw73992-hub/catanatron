@@ -83,10 +83,12 @@ def test_empty_payout_if_multiple_players_need_a_scarce_resource():
     if tile.resource is None:  # is desert
         tile = board.map.land_tiles[(-1, 0, 1)]
 
-    board.build_settlement(Color.RED, 3, initial_build_phase=True)
-    board.build_city(Color.RED, 3)
-    board.build_settlement(Color.BLUE, 0, initial_build_phase=True)
-    board.build_city(Color.BLUE, 0)
+    tile_nodes = list(tile.nodes.values())
+    red_node, blue_node = tile_nodes[0], tile_nodes[3]
+    board.build_settlement(Color.RED, red_node, initial_build_phase=True)
+    board.build_city(Color.RED, red_node)
+    board.build_settlement(Color.BLUE, blue_node, initial_build_phase=True)
+    board.build_city(Color.BLUE, blue_node)
     freqdeck_draw(resource_freqdeck, 18, tile.resource)  # type: ignore
 
     payout, depleted = yield_resources(board, resource_freqdeck, tile.number)

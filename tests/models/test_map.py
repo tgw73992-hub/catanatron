@@ -72,11 +72,11 @@ def test_base_map_can_be_created():
 
 
 def test_official_spiral():
-    random.seed(0)
+    rng = random.Random(0)
 
     for _ in range(100):
         all_tiles = initialize_tiles(
-            BASE_MAP_TEMPLATE, number_placement="official_spiral"
+            BASE_MAP_TEMPLATE, number_placement="official_spiral", rng=rng
         )
         land_tiles = [tile for tile in all_tiles.values() if isinstance(tile, LandTile)]
         desert_tiles = [tile for tile in land_tiles if tile.resource is None]

@@ -3,8 +3,7 @@ Contains Game class which is a thin-wrapper around the State class.
 """
 
 import uuid
-import random
-import sys
+import secrets
 from typing import Sequence, Union, Optional
 
 from catanatron.models.actions import generate_playable_actions
@@ -18,6 +17,7 @@ from catanatron.state_functions import (
 )
 from catanatron.models.map import CatanMap, NumberPlacement
 from catanatron.models.player import Color, Player
+from catanatron.rng import EnvironmentRngs
 
 # To timeout RandomRobots from getting stuck...
 TURNS_LIMIT = 1000
@@ -108,6 +108,7 @@ class Game:
         vps_to_win: int = 10,
         catan_map: Optional[CatanMap] = None,
         number_placement: NumberPlacement = "official_spiral",
+        rngs: Optional[EnvironmentRngs] = None,
         initialize: bool = True,
     ):
         """Creates a game (doesn't run it).
@@ -121,8 +122,15 @@ class Game:
             initialize (bool, optional): Whether to initialize. Defaults to True.
         """
         if initialize:
-            self.seed = seed if seed is not None else random.randrange(sys.maxsize)
-            random.seed(self.seed)
+            if rngs is not None and seed is not None and seed != rngs.root_seed:
+                raise ValueError("Game seed and environment RNG root seed differ")
+            if rngs is not None:
+                self.seed = rngs.root_seed
+            elif seed is not None:
+                self.seed = seed
+            else:
+                self.seed = secrets.randbits(63)
+            environment_rngs = rngs or EnvironmentRngs.from_seed(self.seed)
 
             self.id = str(uuid.uuid4())
             self.vps_to_win = vps_to_win
@@ -133,6 +141,7 @@ class Game:
                 discard_limit=discard_limit,
                 friendly_robber=friendly_robber,
                 number_placement=number_placement,
+                rngs=environment_rngs,
             )
             self.playable_actions = generate_playable_actions(self.state)
 

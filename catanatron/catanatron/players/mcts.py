@@ -1,7 +1,6 @@
 import math
 import time
 from collections import defaultdict
-import random
 
 from catanatron.game import Game
 from catanatron.models.player import Player
@@ -25,7 +24,7 @@ class MCTSPlayer(Player):
             return actions[0]
 
         start = time.time()
-        root = StateNode(self.color, game.copy(), None, self.prunning)
+        root = StateNode(self.color, game.copy(), None, self.prunning, self.rng)
         for _ in range(self.num_simulations):
             root.run_simulation()
 
@@ -39,13 +38,15 @@ class MCTSPlayer(Player):
 
 
 class StateNode:
-    def __init__(self, color, game: Game, parent, prunning=False):
+    def __init__(self, color, game: Game, parent, prunning=False, rng=None):
         self.level = 0 if parent is None else parent.level + 1
         self.color = color  # color of player carrying out MCTS
         self.parent = parent
         self.game = game  # state
         self.children = []
         self.prunning = prunning
+        player_index = game.state.color_to_index[color]
+        self.rng = rng or game.state.players[player_index].rng
 
         self.wins = 0
         self.visits = 0
@@ -87,7 +88,7 @@ class StateNode:
             outcomes = execute_spectrum(self.game, action)
             for state, proba in outcomes:
                 children[action].append(
-                    (StateNode(self.color, state, self, self.prunning), proba)
+                    (StateNode(self.color, state, self, self.prunning, self.rng), proba)
                 )
         self.children = children
 
@@ -99,7 +100,7 @@ class StateNode:
         children = self.children[action]
         children_states = list(map(lambda c: c[0], children))
         children_probas = list(map(lambda c: c[1], children))
-        return random.choices(children_states, weights=children_probas, k=1)[0]
+        return self.rng.choices(children_states, weights=children_probas, k=1)[0]
 
     def choose_best_action(self):
         scores = []

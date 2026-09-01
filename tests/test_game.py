@@ -230,18 +230,31 @@ def test_discard_is_configurable(fake_roll_dice):
 def test_friendly_robber_filters_tiles_in_game_playable_actions(fake_roll_dice):
     fake_roll_dice.return_value = (1, 6)
     players = [SimplePlayer(Color.RED), SimplePlayer(Color.BLUE)]
-    blocked_coordinates = {(2, -2, 0), (2, -1, -1)}
 
     regular_game = Game(players, seed=1, friendly_robber=False)
     build_initial_placements(regular_game)
-    regular_game.execute(Action(Color.RED, ActionType.ROLL, None))
+    active_color = regular_game.state.current_color()
+    regular_game.execute(Action(active_color, ActionType.ROLL, None))
     regular_coordinates = {
         action.value[0] for action in regular_game.playable_actions
     }
+    blocked_coordinates = {
+        coordinate
+        for coordinate, tile in regular_game.state.board.map.land_tiles.items()
+        if any(
+            building is not None
+            and building[0] != active_color
+            and get_actual_victory_points(regular_game.state, building[0]) < 3
+            for node_id in tile.nodes.values()
+            if (building := regular_game.state.board.buildings.get(node_id))
+        )
+    }
+    blocked_coordinates.discard(regular_game.state.board.robber_coordinate)
 
     friendly_game = Game(players, seed=1, friendly_robber=True)
     build_initial_placements(friendly_game)
-    friendly_game.execute(Action(Color.RED, ActionType.ROLL, None))
+    assert friendly_game.state.current_color() == active_color
+    friendly_game.execute(Action(active_color, ActionType.ROLL, None))
     friendly_coordinates = {
         action.value[0] for action in friendly_game.playable_actions
     }
@@ -258,7 +271,7 @@ def test_friendly_robber_does_not_break_pruned_robber_actions(fake_roll_dice):
 
     game = Game(players, seed=1, friendly_robber=True)
     build_initial_placements(game)
-    game.execute(Action(Color.RED, ActionType.ROLL, None))
+    game.execute(Action(game.state.current_color(), ActionType.ROLL, None))
 
     actions = list_prunned_actions(game)
 

@@ -124,9 +124,9 @@ def test_reachability_features():
     # NOTE: tensor-board-test.png is the board that happens after seeding random
     #   with 123 and running a random.sample() like so:
     # We do this here to allow Game.__init__ evolve freely.
-    random.seed(123)
-    random.sample(players, len(players))
-    catan_map = CatanMap.from_template(BASE_MAP_TEMPLATE, "random")
+    rng = random.Random(123)
+    rng.sample(players, len(players))
+    catan_map = CatanMap.from_template(BASE_MAP_TEMPLATE, "random", rng=rng)
     game = Game(players, seed=123, catan_map=catan_map)
     p0_color = game.state.colors[0]
 
@@ -385,9 +385,9 @@ def test_resource_proba_planes():
     # NOTE: tensor-board-test.png is the board that happens after seeding random
     #   with 123 and running a random.sample() like so:
     # We do this here to allow Game.__init__ evolve freely.
-    random.seed(123)
-    random.sample(players, len(players))
-    catan_map = CatanMap.from_template(BASE_MAP_TEMPLATE, "random")
+    rng = random.Random(123)
+    rng.sample(players, len(players))
+    catan_map = CatanMap.from_template(BASE_MAP_TEMPLATE, "random", rng=rng)
     game = Game(players, seed=123, catan_map=catan_map)
 
     tensor = create_board_tensor(game, players[0].color)

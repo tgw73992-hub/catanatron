@@ -207,8 +207,11 @@ class CatanMap:
     def from_template(
         map_template: MapTemplate,
         number_placement: NumberPlacement = "official_spiral",
+        rng: Union[random.Random, None] = None,
     ):
-        tiles = initialize_tiles(map_template, number_placement=number_placement)
+        tiles = initialize_tiles(
+            map_template, number_placement=number_placement, rng=rng
+        )
 
         return CatanMap.from_tiles(tiles)
 
@@ -313,6 +316,7 @@ def initialize_tiles(
     shuffled_port_resources_param=None,
     shuffled_tile_resources_param=None,
     number_placement: NumberPlacement = "official_spiral",
+    rng: Union[random.Random, None] = None,
 ) -> Dict[Coordinate, Tile]:
     """Initializes a new random board, based on the MapTemplate.
 
@@ -329,13 +333,14 @@ def initialize_tiles(
     Returns:
         Dict[Coordinate, Tile]: Coordinate to initialized Tile mapping.
     """
-    shuffled_port_resources = shuffled_port_resources_param or random.sample(
+    random_source = rng or random.Random()
+    shuffled_port_resources = shuffled_port_resources_param or random_source.sample(
         map_template.port_resources, len(map_template.port_resources)
     )
-    shuffled_tile_resources = shuffled_tile_resources_param or random.sample(
+    shuffled_tile_resources = shuffled_tile_resources_param or random_source.sample(
         map_template.tile_resources, len(map_template.tile_resources)
     )
-    shuffled_numbers = shuffled_numbers_param or random.sample(
+    shuffled_numbers = shuffled_numbers_param or random_source.sample(
         map_template.numbers, len(map_template.numbers)
     )
 
@@ -529,14 +534,18 @@ TOURNAMENT_MAP_TILES = initialize_tiles(
 TOURNAMENT_MAP = CatanMap.from_tiles(TOURNAMENT_MAP_TILES)
 
 
-def build_map(map_type: MapType, number_placement: NumberPlacement = "official_spiral"):
+def build_map(
+    map_type: MapType,
+    number_placement: NumberPlacement = "official_spiral",
+    rng: Union[random.Random, None] = None,
+):
     if map_type == "TOURNAMENT":
         return TOURNAMENT_MAP  # this assumes map is read-only data struct
     elif map_type == "MINI":
         return CatanMap.from_template(
-            MINI_MAP_TEMPLATE, number_placement=number_placement
+            MINI_MAP_TEMPLATE, number_placement=number_placement, rng=rng
         )
     else:
         return CatanMap.from_template(
-            BASE_MAP_TEMPLATE, number_placement=number_placement
+            BASE_MAP_TEMPLATE, number_placement=number_placement, rng=rng
         )
