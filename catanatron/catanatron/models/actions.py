@@ -90,26 +90,34 @@ def generate_playable_actions(state: State) -> List[Action]:
     elif action_prompt == ActionPrompt.DISCARD:
         return discard_possibilities(state, color)
     elif action_prompt == ActionPrompt.DECIDE_TRADE:
-        actions = [Action(color, ActionType.REJECT_TRADE, state.current_trade)]
+        is_directed = len(state.current_trade) == 12
+        response_value = None if is_directed else state.current_trade
+        actions = [Action(color, ActionType.REJECT_TRADE, response_value)]
 
         # can only accept if have enough cards
         freqdeck = get_player_freqdeck(state, color)
         asked = state.current_trade[5:10]
         if freqdeck_contains(freqdeck, asked):
-            actions.append(Action(color, ActionType.ACCEPT_TRADE, state.current_trade))
+            actions.append(Action(color, ActionType.ACCEPT_TRADE, response_value))
 
         return actions
     elif action_prompt == ActionPrompt.DECIDE_ACCEPTEES:
         # you should be able to accept for each of the "accepting players"
         actions = [Action(color, ActionType.CANCEL_TRADE, None)]
 
+        is_directed = len(state.current_trade) == 12
         for other_color, accepted in zip(state.colors, state.acceptees):
             if accepted:
+                confirm_value = (
+                    other_color
+                    if is_directed
+                    else (*state.current_trade[:10], other_color)
+                )
                 actions.append(
                     Action(
                         color,
                         ActionType.CONFIRM_TRADE,
-                        (*state.current_trade[:10], other_color),
+                        confirm_value,
                     )
                 )
         return actions

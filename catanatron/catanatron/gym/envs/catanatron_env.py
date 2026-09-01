@@ -4,10 +4,15 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 
-from catanatron.game import Game, TURNS_LIMIT
+from catanatron.game import Game, TURNS_LIMIT, is_valid_action
+from catanatron.models.enums import ActionPrompt, ActionType
 from catanatron.models.player import Color, Player, RandomPlayer
 from catanatron.models.map import build_map
 from catanatron.rng import EnvironmentRngs
+from catanatron.state_functions import (
+    player_has_rolled,
+    player_resource_freqdeck_contains,
+)
 from catanatron.features import (
     create_sample,
     get_feature_ordering,
@@ -55,6 +60,7 @@ class CatanatronEnv(gym.Env):
         self.invalid_action_reward = self.config.get("invalid_action_reward", -1)
         self.reward_function = self.config.get("reward_function", simple_reward)
         self.map_type = self.config.get("map_type", "BASE")
+        self.domestic_trade = self.config.get("domestic_trade", False)
         self.vps_to_win = self.config.get("vps_to_win", 10)
         self.render_mode = self.config.get("render_mode", None)
         self.render_scale = self.config.get("render_scale", 1.0)
@@ -75,9 +81,16 @@ class CatanatronEnv(gym.Env):
         self.max_invalid_actions = 10
 
         # Build action space depending on map type
-        self.action_array = get_action_array(self.player_colors, self.map_type)
+        self.action_array = get_action_array(
+            self.player_colors, self.map_type, self.domestic_trade
+        )
         self.action_space_size = len(self.action_array)
         self.action_space = spaces.Discrete(self.action_space_size)
+        self.domestic_offer_actions = [
+            (action_int, value)
+            for action_int, (action_type, value) in enumerate(self.action_array)
+            if action_type == ActionType.OFFER_TRADE
+        ]
 
         if self.representation == "mixed":
             channels = get_channels(len(self.players))
@@ -111,12 +124,35 @@ class CatanatronEnv(gym.Env):
         Returns:
             List[int]: valid actions (sorted for reproducibility)
         """
-        return sorted(
-            [
-                to_action_space(a, self.player_colors, self.map_type)
-                for a in self.game.playable_actions
-            ]
+        if not self.domestic_trade:
+            return sorted(
+                [
+                    to_action_space(a, self.player_colors, self.map_type)
+                    for a in self.game.playable_actions
+                ]
+            )
+        valid = {
+            to_action_space(
+                action,
+                self.player_colors,
+                self.map_type,
+                domestic_trade=True,
+            )
+            for action in self.game.playable_actions
+        }
+        state = self.game.state
+        can_offer = (
+            state.current_color() == self.p0.color
+            and state.current_prompt == ActionPrompt.PLAY_TURN
+            and player_has_rolled(state, self.p0.color)
         )
+        if can_offer:
+            for action_int, value in self.domestic_offer_actions:
+                if player_resource_freqdeck_contains(
+                    state, self.p0.color, value[:5]
+                ):
+                    valid.add(action_int)
+        return sorted(valid)
 
     def action_masks(self) -> list[bool]:
         """
@@ -132,9 +168,15 @@ class CatanatronEnv(gym.Env):
     def step(self, action):
         try:
             catan_action = from_action_space(
-                action, self.p0.color, self.player_colors, self.map_type
+                action,
+                self.p0.color,
+                self.player_colors,
+                self.map_type,
+                self.domestic_trade,
             )
-            assert catan_action in self.game.playable_actions
+            assert is_valid_action(
+                self.game.playable_actions, self.game.state, catan_action
+            )
         except AssertionError:
             self.invalid_actions_count += 1
 

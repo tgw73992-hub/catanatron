@@ -27,11 +27,24 @@ def is_valid_action(playable_actions, state: State, action: Action) -> bool:
     """True if its a valid action right now. An action is valid
     if its in playable_actions or if its a OFFER_TRADE in the right time."""
     if action.action_type == ActionType.OFFER_TRADE:
+        directed_recipient = (
+            action.value[10]
+            if len(action.value) == 11 and isinstance(action.value[10], Color)
+            else None
+        )
         return (
             state.current_color() == action.color
             and state.current_prompt == ActionPrompt.PLAY_TURN
             and player_has_rolled(state, action.color)
-            and is_valid_trade(action.value)
+            and (len(action.value) == 10 or directed_recipient is not None)
+            and is_valid_trade(action.value[:10])
+            and (
+                directed_recipient is None
+                or (
+                    directed_recipient in state.colors
+                    and directed_recipient != action.color
+                )
+            )
             and player_resource_freqdeck_contains(
                 state, action.color, action.value[:5]
             )
@@ -44,8 +57,10 @@ def is_valid_trade(action_value):
     """Checks the value of a OFFER_TRADE does not
     give away resources or trade matching resources.
     """
+    if len(action_value) != 10:
+        return False
     offering = action_value[:5]
-    asking = action_value[5:]
+    asking = action_value[5:10]
     if sum(offering) == 0 or sum(asking) == 0:
         return False  # cant give away cards
 

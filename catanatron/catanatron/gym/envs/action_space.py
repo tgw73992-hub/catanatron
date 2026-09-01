@@ -10,7 +10,9 @@ from catanatron.models.map import build_map
 
 @lru_cache(maxsize=None)
 def get_action_array(
-    player_colors: Tuple[Color], map_type: Literal["BASE", "TOURNAMENT", "MINI"]
+    player_colors: Tuple[Color],
+    map_type: Literal["BASE", "TOURNAMENT", "MINI"],
+    domestic_trade: bool = False,
 ):
     catan_map = build_map(map_type)
     num_nodes = len(catan_map.land_nodes)
@@ -67,6 +69,33 @@ def get_action_array(
                 for j in RESOURCES
                 if i != j
             ],
+            *(
+                [
+                    *[
+                        (
+                            ActionType.OFFER_TRADE,
+                            (
+                                *(int(index == offered) for index in range(5)),
+                                *(int(index == asked) for index in range(5)),
+                                recipient,
+                            ),
+                        )
+                        for recipient in player_colors[1:]
+                        for offered in range(5)
+                        for asked in range(5)
+                        if offered != asked
+                    ],
+                    (ActionType.ACCEPT_TRADE, None),
+                    (ActionType.REJECT_TRADE, None),
+                    *[
+                        (ActionType.CONFIRM_TRADE, recipient)
+                        for recipient in player_colors[1:]
+                    ],
+                    (ActionType.CANCEL_TRADE, None),
+                ]
+                if domestic_trade
+                else []
+            ),
             (ActionType.END_TURN, None),
         ],
         key=lambda action: str(action),
@@ -85,9 +114,10 @@ def to_action_space(
     action: Action,
     player_colors: Tuple[Color],
     map_type: Literal["BASE", "TOURNAMENT", "MINI"],
+    domestic_trade: bool = False,
 ):
     """maps action to space_action equivalent integer"""
-    actions_array = get_action_array(player_colors, map_type)
+    actions_array = get_action_array(player_colors, map_type, domestic_trade)
     return actions_array.index((action.action_type, action.value))
 
 
@@ -96,8 +126,9 @@ def from_action_space(
     color: Color,
     player_colors: Tuple[Color],
     map_type: Literal["BASE", "TOURNAMENT", "MINI"],
+    domestic_trade: bool = False,
 ):
     """maps action_int to catantron.models.actions.Action"""
-    actions_array = get_action_array(player_colors, map_type)
+    actions_array = get_action_array(player_colors, map_type, domestic_trade)
     (action_type, value) = actions_array[action_int]
     return Action(color, action_type, value)

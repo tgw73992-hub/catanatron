@@ -440,12 +440,22 @@ def apply_maritime_trade(state: State, action: Action):
 
 def apply_offer_trade(state: State, action: Action):
     state.is_resolving_trade = True
-    state.current_trade = (*action.value, state.current_turn_index)
+    is_directed = len(action.value) == 11 and isinstance(action.value[10], Color)
+    if is_directed:
+        recipient_index = state.colors.index(action.value[10])
+        state.current_trade = (
+            *action.value[:10],
+            state.current_turn_index,
+            recipient_index,
+        )
+        state.current_player_index = recipient_index
+    else:
+        state.current_trade = (*action.value, state.current_turn_index)
 
-    # go in seating order; order won't matter because of "acceptees hook"
-    state.current_player_index = next(
-        i for i, c in enumerate(state.colors) if c != action.color
-    )  # cant ask yourself
+        # go in seating order; order won't matter because of "acceptees hook"
+        state.current_player_index = next(
+            i for i, c in enumerate(state.colors) if c != action.color
+        )  # cant ask yourself
     state.current_prompt = ActionPrompt.DECIDE_TRADE
     return ActionRecord(action=action, result=None)
 
@@ -456,6 +466,11 @@ def apply_accept_trade(state: State, action: Action):
     new_acceptess = list(state.acceptees)
     new_acceptess[index] = True  # type: ignore
     state.acceptees = tuple(new_acceptess)
+
+    if len(state.current_trade) == 12:
+        state.current_player_index = state.current_turn_index
+        state.current_prompt = ActionPrompt.DECIDE_ACCEPTEES
+        return ActionRecord(action=action, result=None)
 
     try:
         # keep going around table w/o asking yourself or players that have answered
@@ -475,6 +490,12 @@ def apply_accept_trade(state: State, action: Action):
 
 
 def apply_reject_trade(state: State, action: Action):
+    if len(state.current_trade) == 12:
+        reset_trading_state(state)
+        state.current_player_index = state.current_turn_index
+        state.current_prompt = ActionPrompt.PLAY_TURN
+        return ActionRecord(action=action, result=None)
+
     try:
         # keep going around table w/o asking yourself or players that have answered
         state.current_player_index = next(
@@ -500,9 +521,14 @@ def apply_reject_trade(state: State, action: Action):
 
 
 def apply_confirm_trade(state: State, action: Action):
-    offering = action.value[:5]
-    asking = action.value[5:10]
-    enemy_color = action.value[10]
+    if isinstance(action.value, Color):
+        offering = state.current_trade[:5]
+        asking = state.current_trade[5:10]
+        enemy_color = action.value
+    else:
+        offering = action.value[:5]
+        asking = action.value[5:10]
+        enemy_color = action.value[10]
     if not player_resource_freqdeck_contains(state, action.color, offering):
         raise ValueError("Offering player does not have the required resources")
     if not player_resource_freqdeck_contains(state, enemy_color, asking):
