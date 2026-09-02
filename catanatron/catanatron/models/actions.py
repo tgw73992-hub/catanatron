@@ -147,7 +147,7 @@ def year_of_plenty_possibilities(color, freqdeck: List[int]) -> List[Action]:
     return list(
         map(
             lambda cards: Action(color, ActionType.PLAY_YEAR_OF_PLENTY, tuple(cards)),
-            options,
+            sorted(options),
         )
     )
 
@@ -249,7 +249,7 @@ def _robber_possibilities_without_friendly_robber(state, color) -> List[Action]:
         if len(to_steal_from) == 0:
             actions.append(Action(color, ActionType.MOVE_ROBBER, (coordinate, None)))
         else:
-            for enemy_color in to_steal_from:
+            for enemy_color in sorted(to_steal_from, key=lambda item: item.value):
                 actions.append(
                     Action(color, ActionType.MOVE_ROBBER, (coordinate, enemy_color))
                 )
@@ -345,4 +345,7 @@ def inner_maritime_trade_possibilities(hand_freqdeck, bank_freqdeck, port_resour
                     trade_offer = tuple(resource_out + [j_resource])
                     trade_offers.add(trade_offer)
 
-    return trade_offers
+    return sorted(
+        trade_offers,
+        key=lambda offer: tuple(card if card is not None else "" for card in offer),
+    )
